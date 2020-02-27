@@ -95,19 +95,24 @@ void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
   ROS_INFO_STREAM(currDepth);
   geometry_msgs::Twist T;
   if (currDepth <= TOO_CLOSE and !blocked) {
-    ROS_INFO_STREAM("stop");
+    // ROS_INFO_STREAM("stop");
     blocked = true;
     T.linear.x = 0;
     cmdpub.publish(T);
     sc.say("Help, I'm stuck! Could you remove the obstacle, or tell me to go left or right?");
-    sleepok(6, n);
+    sleepok(7, n);
   }
   else if (currDepth <= TOO_CLOSE and blocked) {
     // do nothing
   } 
   else {
+    if (blocked) {
+      sleepok(2, n);
+      sc.say("Thank you for unblocking me!");
+      sleepok(2, n);
+    }
     blocked = false;
-    ROS_INFO_STREAM("move");
+    // ROS_INFO_STREAM("move");
     T.linear.x = 0.3;
     T.angular.z = 0;
     cmdpub.publish(T);
@@ -127,7 +132,7 @@ void voiceCallback(const std_msgs::String recogMsg) {
     // T.linear.x = 0.5;
     cmdpub.publish(T);
     sleepok(1, n);
-    sc.say("Turning");
+    // sc.say("Turning");
     sleepok(2, n);
     
   }
@@ -136,7 +141,7 @@ void voiceCallback(const std_msgs::String recogMsg) {
     T.angular.z = -2;
     cmdpub.publish(T);
     sleepok(1, n);
-    sc.say("Turning");
+    // sc.say("Turning");
     sleepok(2, n);
   }
   else {
@@ -170,13 +175,13 @@ int main(int argc, char** argv) {
 
   depthSubscriber = n.subscribe<sensor_msgs::Image>("camera/depth/image_rect", 10, &depthCallback);
   speechRecognitionSubscriber = n.subscribe("/recognizer/output", 100, &voiceCallback);
-  cmdpub = n.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1000);
+  cmdpub = n.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1);
   ros::Rate rate(5);
 
   while (ros::ok()) {
     ros::spinOnce();
     //maneuver();
-    sleepok(1, n);
+    //sleepok(1, n);
     //sc.say("Hello");
     //sleepok(2, n);
     //rate.sleep();
