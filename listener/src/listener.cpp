@@ -97,17 +97,18 @@ void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
   if (currDepth <= TOO_CLOSE and !blocked) {
     ROS_INFO_STREAM("stop");
     blocked = true;
-    sc.say("help");
     T.linear.x = 0;
     cmdpub.publish(T);
-    sleepok(1, n);
+    sc.say("Help, I'm stuck! Could you remove the obstacle, or tell me to go left or right?");
+    sleepok(6, n);
   }
   else if (currDepth <= TOO_CLOSE and blocked) {
     // do nothing
   } 
   else {
+    blocked = false;
     ROS_INFO_STREAM("move");
-    T.linear.x = 0.5;
+    T.linear.x = 0.3;
     T.angular.z = 0;
     cmdpub.publish(T);
     sleepok(1, n);
@@ -127,7 +128,7 @@ void voiceCallback(const std_msgs::String recogMsg) {
     cmdpub.publish(T);
     sleepok(1, n);
     sc.say("Turning");
-    //sleepok(2, n);
+    sleepok(2, n);
     
   }
   else if (recogMsg.data == "right") {
@@ -136,12 +137,12 @@ void voiceCallback(const std_msgs::String recogMsg) {
     cmdpub.publish(T);
     sleepok(1, n);
     sc.say("Turning");
-    //sleepok(2, n);
+    sleepok(2, n);
   }
   else {
     sleepok(1, n);
-    sc.say("Please speak more clearly.");
-    //sleepok(2, n);
+    sc.say("What?");
+    sleepok(2, n);
   }
 }
 
