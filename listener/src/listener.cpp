@@ -36,9 +36,9 @@ const float MIN_Y = 0.1;
 const float MAX_Y = 0.5;
 const float MIN_X = -0.2;
 const float MAX_X = 0.2;
-const float TOO_CLOSE = .90;
+const float TOO_CLOSE = 0.8;
 
-
+bool blocked = false;
 
 void sleepok(int t, ros::NodeHandle &nh)
  {
@@ -47,7 +47,9 @@ void sleepok(int t, ros::NodeHandle &nh)
  }
 
 void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
-  ROS_INFO_STREAM("depth callback");
+  // ROS_INFO_STREAM("depth callback");
+  sound_play::SoundClient sc;
+  ros::NodeHandle n;
   currDepth = 999;
 
   // Process the x axis of the depth image to detect any obstacles' positions
@@ -89,18 +91,26 @@ void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
     }
   }
   //ROS_INFO_STREAM(currDepth);
-
+  
+  ROS_INFO_STREAM(currDepth);
   geometry_msgs::Twist T;
-  if (currDepth <= TOO_CLOSE) {
+  if (currDepth <= TOO_CLOSE and !blocked) {
     ROS_INFO_STREAM("stop");
+    blocked = true;
+    sc.say("help");
     T.linear.x = 0;
     cmdpub.publish(T);
+    sleepok(1, n);
   }
+  else if (currDepth <= TOO_CLOSE and blocked) {
+    // do nothing
+  } 
   else {
     ROS_INFO_STREAM("move");
-    T.linear.x = 2;
+    T.linear.x = 0.5;
     T.angular.z = 0;
     cmdpub.publish(T);
+    sleepok(1, n);
   }
 }
 
@@ -112,12 +122,12 @@ void voiceCallback(const std_msgs::String recogMsg) {
 
   if (recogMsg.data == "left") {
     ROS_INFO_STREAM("FOUND LEFT");
-    // T.angular.z = 2;
-    T.linear.x = 0.5;
+    T.angular.z = 2;
+    // T.linear.x = 0.5;
     cmdpub.publish(T);
     sleepok(1, n);
-    sc.say("Turning left");
-    sleepok(2, n);
+    sc.say("Turning");
+    //sleepok(2, n);
     
   }
   else if (recogMsg.data == "right") {
@@ -125,26 +135,26 @@ void voiceCallback(const std_msgs::String recogMsg) {
     T.angular.z = -2;
     cmdpub.publish(T);
     sleepok(1, n);
-    sc.say("Turning right");
-    sleepok(2, n);
+    sc.say("Turning");
+    //sleepok(2, n);
   }
   else {
     sleepok(1, n);
     sc.say("Please speak more clearly.");
-    sleepok(2, n);
+    //sleepok(2, n);
   }
 }
 
 void maneuver() {
   geometry_msgs::Twist T;
   if (currDepth <= TOO_CLOSE) {
-    ROS_INFO_STREAM("stop");
+    ROS_INFO_STREAM("too close");
     T.linear.x = 0;
     cmdpub.publish(T);
   }
   else {
-    ROS_INFO_STREAM("move");
-    T.linear.x = 2;
+    //ROS_INFO_STREAM("move");
+    T.linear.x = 0.5;
     T.angular.z = 0;
     cmdpub.publish(T);
   }
@@ -157,7 +167,7 @@ int main(int argc, char** argv) {
 
   sound_play::SoundClient sc;
 
-  depthSubscriber = n.subscribe<sensor_msgs::Image>("camera/depth/image_rect", 1, &depthCallback);
+  depthSubscriber = n.subscribe<sensor_msgs::Image>("camera/depth/image_rect", 10, &depthCallback);
   speechRecognitionSubscriber = n.subscribe("/recognizer/output", 100, &voiceCallback);
   cmdpub = n.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1000);
   ros::Rate rate(5);
@@ -165,10 +175,10 @@ int main(int argc, char** argv) {
   while (ros::ok()) {
     ros::spinOnce();
     //maneuver();
-    //sleepok(1, n);
+    sleepok(1, n);
     //sc.say("Hello");
     //sleepok(2, n);
-    rate.sleep();
+    //rate.sleep();
   }
   
   return 0;
