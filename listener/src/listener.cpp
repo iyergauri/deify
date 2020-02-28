@@ -59,6 +59,7 @@ const float TOO_CLOSE = 0.8;
 // Keep track of blocked state so robot can ask for help
 bool blocked = false;
 bool justTurned = false;
+bool announceFreedom = false;
 
 /************************
  * void sleepok(int t, ros::NodeHandle &nh)
@@ -142,7 +143,8 @@ void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
     blocked = true;
     T.linear.x = 0;
     cmdpub.publish(T);
-    sc.say("Help, I'm stuck! Could you remove the obstacle, or tell me to go left or right?");
+    sc.say("Please help me leave!");
+    // sc.say("Help, I'm stuck! Could you remove the obstacle, or tell me to go left or right?");
     sleepok(7, n);
   }
 
@@ -160,21 +162,26 @@ void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
       sleepok(2, n);
       if (justTurned) {
         sc.say("Thank you for unblocking me!");
+        sleepok(2, n);
       }
       else {
-        sc.say("I'm freeeeeeeee!");
-        
+        announceFreedom = true;
       }
-      sleepok(2, n);
     }
 
-    // Case 3B: Robot was not previously obstructed. Just move forward.
+    // Move forward
     justTurned = false;
     blocked = false;
     T.linear.x = 0.3;
     T.angular.z = 0;
+    if (announceFreedom) {
+      sc.say("I'm freeeeeeeee!");
+      sleepok(2, n); 
+      announceFreedom = false;
+    }
     cmdpub.publish(T);
-    // sleepok(1, n);
+
+
   }
 }
 
@@ -198,25 +205,19 @@ void voiceCallback(const std_msgs::String recogMsg) {
     justTurned = true;
     ROS_INFO_STREAM("FOUND LEFT");
     T.angular.z = 2;
-    // T.linear.x = 0.5;
-    cmdpub.publish(T);
-    // sleepok(1, n);
-    // sc.say("Turning");
-    // sleepok(2, n);
-    
+    cmdpub.publish(T);    
   }
+
   else if (recogMsg.data == "right") {
     justTurned = true;
     ROS_INFO_STREAM("FOUND RIGHT");
     T.angular.z = -2;
     cmdpub.publish(T);
-    // sleepok(1, n);
-    // sc.say("Turning");
-    // sleepok(2, n);
   }
+
   else {
     justTurned = false;
-    sleepok(1, n);
+    // sleepok(1, n);
     sc.say("What?");
     sleepok(2, n);
   }
@@ -243,14 +244,10 @@ int main(int argc, char** argv) {
   depthSubscriber = n.subscribe<sensor_msgs::Image>("camera/depth/image_rect", 10, &depthCallback);
   speechRecognitionSubscriber = n.subscribe("/recognizer/output", 100, &voiceCallback);
   cmdpub = n.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1);
+  
   ros::Rate rate(5);
-
   while (ros::ok()) {
     ros::spinOnce();
-    //maneuver();
-    //sleepok(1, n);
-    //sc.say("Hello");
-    //sleepok(2, n);
     rate.sleep();
   }
   
