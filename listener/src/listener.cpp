@@ -58,6 +58,7 @@ const float TOO_CLOSE = 0.8;
 
 // Keep track of blocked state so robot can ask for help
 bool blocked = false;
+bool justTurned = false;
 
 /************************
  * void sleepok(int t, ros::NodeHandle &nh)
@@ -157,11 +158,18 @@ void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
     // Case 3A: Robot was previously obstructed - thank the human!
     if (blocked) {
       sleepok(2, n);
-      sc.say("Thank you for unblocking me!");
+      if (justTurned) {
+        sc.say("Thank you for unblocking me!");
+      }
+      else {
+        sc.say("I'm freeeeeeeee!");
+        
+      }
       sleepok(2, n);
     }
 
     // Case 3B: Robot was not previously obstructed. Just move forward.
+    justTurned = false;
     blocked = false;
     T.linear.x = 0.3;
     T.angular.z = 0;
@@ -187,6 +195,7 @@ void voiceCallback(const std_msgs::String recogMsg) {
   sound_play::SoundClient sc;
 
   if (recogMsg.data == "left") {
+    justTurned = true;
     ROS_INFO_STREAM("FOUND LEFT");
     T.angular.z = 2;
     // T.linear.x = 0.5;
@@ -197,6 +206,7 @@ void voiceCallback(const std_msgs::String recogMsg) {
     
   }
   else if (recogMsg.data == "right") {
+    justTurned = true;
     ROS_INFO_STREAM("FOUND RIGHT");
     T.angular.z = -2;
     cmdpub.publish(T);
@@ -205,6 +215,7 @@ void voiceCallback(const std_msgs::String recogMsg) {
     // sleepok(2, n);
   }
   else {
+    justTurned = false;
     sleepok(1, n);
     sc.say("What?");
     sleepok(2, n);
