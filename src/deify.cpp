@@ -18,9 +18,11 @@
  * In 4 terminals, run:
  *    1. roscore
  *    2. roslaunch turtlebot_bringup minimal.launch
- *    3. roslaunch astra_launch astra_pro.launch
- *    4. roslaunch sound_play soundplay_node.py
- * In a 6th terminal, inside the workspace containining deify, run:
+ *    3. roscd astra_launch
+ *       roslaunch astra_launch astra_pro.launch
+ *    4. roscd sound_play
+ *       roslaunch sound_play soundplay_node.launch
+ * In a 5th terminal, inside the workspace containining deify, run:
  *    - catkin_make
  *    - rosrun deify deify
  ************************/
@@ -52,10 +54,11 @@ const float MIN_Y = 0.1;
 const float MAX_Y = 0.5;
 const float MIN_X = -0.2;
 const float MAX_X = 0.2;
-const float TOO_CLOSE = 0.8;
+const float NEAR_PERSON = 0.8;
 
-// Keep track of blocked state so robot can ask for help
-bool blocked = false;
+// Keep track of wait state so robot doesn't run away from humans when
+// it's not supposed to.
+bool wait = false;
 bool justTurned = false;
 bool announceFreedom = false;
 
@@ -134,21 +137,20 @@ void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
   
 
   // Actions change depending on current/past state of robot.
-  // Case 1: Robot is newly obstructed. Announce that robot is stuck, and 
-  // ask for help.
+  // Case 1: Robot is newly obstructed by a person in the way.
+  // Ask the person to start our survey.
   geometry_msgs::Twist T;
-  if (currDepth <= TOO_CLOSE and !blocked) {
-    blocked = true;
+  if (currDepth <= NEAR_PERSON and !wait) {
+    wait = true;
     T.linear.x = 0;
     cmdpub.publish(T);
-    sc.say("Please help me leave!");
-    // sc.say("Help, I'm stuck! Could you remove the obstacle, or tell me to go left or right?");
+    sc.say("Do you have time for a quick survey?");
     sleepok(7, n);
   }
 
-  // Case 2: Robot is previously obstructed, and has already announced that it
-  // needed help. Do nothing; wait for human to help!
-  else if (currDepth <= TOO_CLOSE and blocked) {
+  // Case 2: Robot is still near the person, and has already announced
+  // its presence. Hang out until the person's done with the study.
+  else if (currDepth <= NEAR_PERSON and wait) {
     // do nothing
   } 
 
@@ -156,76 +158,23 @@ void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
   else {
 
     // Case 3A: Robot was previously obstructed - thank the human!
-    if (blocked) {
-      sleepok(2, n);
-      if (justTurned) {
-        sc.say("Thank you for unblocking me!");
-        sleepok(2, n);
-      }
-      else {
-        announceFreedom = true;
-      }
+    if (wait) {
+      sc.say("Thank you for completing my survey!");
     }
 
-    // Move forward
-    justTurned = false;
-    blocked = false;
-    T.linear.x = 0.3;
+    // Case 3B: just like hang out until someone shows up.
+    wait = false;
+    T.linear.x = 0;
     T.angular.z = 0;
-    if (announceFreedom) {
-      sc.say("I'm freeeeeeeee!");
-      sleepok(2, n); 
-      announceFreedom = false;
-    }
     cmdpub.publish(T);
-
-
-  }
-}
-
-/************************
- * Name: void voiceCallback(const std_msgs::String recogMsg)
- *
- * Purpose: This function detects human voice commands, limited to
- * "left" and "right".
- *
- * @param const std_msgs::String recogMsg - contains the audio  
- * information as text from the pocketsphinx node.
- *
- * @return none
-************************/
-void voiceCallback(const std_msgs::String recogMsg) {
-  geometry_msgs::Twist T;
-  ros::NodeHandle n;
-  sound_play::SoundClient sc;
-
-  if (recogMsg.data == "left") {
-    justTurned = true;
-    ROS_INFO_STREAM("FOUND LEFT");
-    T.angular.z = 2;
-    cmdpub.publish(T);    
-  }
-
-  else if (recogMsg.data == "right") {
-    justTurned = true;
-    ROS_INFO_STREAM("FOUND RIGHT");
-    T.angular.z = -2;
-    cmdpub.publish(T);
-  }
-
-  else {
-    justTurned = false;
-    // sleepok(1, n);
-    sc.say("What?");
-    sleepok(2, n);
   }
 }
 
 /************************
  * Name: int main(int argc, char** argv)
  *
- * Purpose: This function initiates the Turtlebot's escape by 
- * receiving camera and voice metrics.
+ * Purpose: This function initiates the Turtlebot's survey journey
+ * receiving camera metrics.
  *
  * @param int argc - unused
  * @param char** argv - unused
@@ -240,7 +189,6 @@ int main(int argc, char** argv) {
   sound_play::SoundClient sc;
 
   depthSubscriber = n.subscribe<sensor_msgs::Image>("camera/depth/image_rect", 10, &depthCallback);
-  speechRecognitionSubscriber = n.subscribe("/recognizer/output", 100, &voiceCallback);
   cmdpub = n.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1);
   
   ros::Rate rate(5);
