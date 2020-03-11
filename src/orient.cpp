@@ -157,7 +157,6 @@ void depthCallback(const sensor_msgs::ImageConstPtr &depthMsg) {
     {
       wait = true;
       ROS_INFO_STREAM("Do you have time for a quick survey?");
-      sc.say("Do you have time for a quick survey?");
     }
 
     // Case 2: Robot is too far from anyone; reset participant.

@@ -28,8 +28,13 @@ include_directories(
 ## Build ##
 ###########
 add_executable(orientAndSpeak src/orientAndSpeak)
+add_executable(orient src/orient)
+add_executable(speak src/speak)
+
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
 target_link_libraries(orientAndSpeak ${catkin_LIBRARIES})
+target_link_libraries(orient ${catkin_LIBRARIES})
+target_link_libraries(speak ${catkin_LIBRARIES})

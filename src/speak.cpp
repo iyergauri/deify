@@ -170,7 +170,7 @@ void depthCallback(const sensor_msgs::ImageConstPtr &depthMsg) {
     else
     {
       ROS_INFO_THROTTLE(1, "Turning towards centroid at x = %f", x);
-      T.angular.z = -x * X_SCALE;
+      T.angular.z = 0;
       cmdpub.publish(T);
     }
   }
@@ -178,8 +178,6 @@ void depthCallback(const sensor_msgs::ImageConstPtr &depthMsg) {
   // Case 4: Not enough points, so just stop.
   else {
     ROS_INFO_STREAM("not enough points, stopping");
-    T.angular.z = 0;
-    cmdpub.publish(T);
   }
 }
 
