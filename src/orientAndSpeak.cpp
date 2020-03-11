@@ -1,5 +1,5 @@
 /************************
- * Filename: deify.cpp
+ * Filename: orientAndSpeak.cpp
  * 
  * Students:
  * - Gauri Iyer
@@ -9,9 +9,9 @@
  * 
  * Description: This file defines the behavior for the deify node in
  * the deify ROS package. This node navigates a Turtlebot that is 
- * trying to escape from humanity by asking for help. The Turtlebot only
- * has one automated task: move forward. Humans are required to remove
- * obstacles from its path and recommend which way to turn.
+ * encouraging human engagement in DEI themes. When the Turtlebot 
+ * locates a participant, it will both orient its "gaze" (the laptop
+ * screen) and vocalize to invite participation. 
  * 
  * Instructions:
  * (Don't forget to source devel/setup.bash in every terminal!)
@@ -24,9 +24,8 @@
  *       roslaunch sound_play soundplay_node.launch
  * In a 5th terminal, inside the workspace containining deify, run:
  *    - catkin_make
- *    - rosrun deify deify
+ *    - rosrun deify orientAndSpeak
  ************************/
-
 
 #include "ros/ros.h"
 #include <std_msgs/String.h>
@@ -46,15 +45,16 @@ ros::Subscriber speechRecognitionSubscriber;
 
 // Depth data from PCL
 float currDepth = 999;
-float depthX = 0;
-float depthY = 0;
 
 // Thresholds for depth calculation
 const float MIN_Y = 0.1;
 const float MAX_Y = 0.5;
 const float MIN_X = -0.2;
 const float MAX_X = 0.2;
-const float NEAR_PERSON = 0.8;
+const float X_SCALE = 1.5;
+const float Z_SCALE = 1.0;
+const float NEAR_PERSON = 0.6;
+const float TOO_FAR = 2.0;
 
 // Keep track of wait state so robot doesn't run away from humans when
 // it's not supposed to.
@@ -73,9 +73,9 @@ bool announceFreedom = false;
  * 
  * @return none
  ************************/
-void sleepok(int t, ros::NodeHandle &nh){
-   if (nh.ok())
-       sleep(t);
+void sleepok(int t, ros::NodeHandle &nh) {
+  if (nh.ok())
+    sleep(t);
 }
 
 /************************
@@ -89,7 +89,7 @@ void sleepok(int t, ros::NodeHandle &nh){
  *
  * @return none
 ************************/
-void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
+void depthCallback(const sensor_msgs::ImageConstPtr &depthMsg) {
   // ROS_INFO_STREAM("depth callback");
   sound_play::SoundClient sc;
   ros::NodeHandle n;
@@ -97,75 +97,106 @@ void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
 
   // Process the x axis of the depth image to detect any obstacles' positions
   uint32_t imageWidth = depthMsg->width;
-  float xRadiansPerPixel = 60.0/57.0/imageWidth;
+  float xRadiansPerPixel = 60.0 / 57.0 / imageWidth;
   float sinPixelX[imageWidth];
   for (int x = 0; x < imageWidth; ++x) {
-    sinPixelX[x] = sin((x - imageWidth/ 2.0)  * xRadiansPerPixel);
+    sinPixelX[x] = sin((x - imageWidth / 2.0) * xRadiansPerPixel);
   }
 
   // Process the y axis of the depth image to detect any obstacles' positions
   uint32_t imageHeight = depthMsg->height;
-  float yRadiansPerPixel = 45.0/57.0/imageWidth;
+  float yRadiansPerPixel = 45.0 / 57.0 / imageWidth;
   float sinPixelY[imageHeight];
   for (int y = 0; y < imageHeight; ++y) {
-    sinPixelY[y] = sin((imageHeight / 2.0 - y)  * yRadiansPerPixel);
+    sinPixelY[y] = sin((imageHeight / 2.0 - y) * yRadiansPerPixel);
   }
 
-  const float* depthRow = reinterpret_cast<const float*>(&depthMsg->data[0]);
+  // X,Y,Z of the centroid
+  float x = 0.0;
+  float y = 0.0;
+  float z = 1e6;
+
+  // Number of points observed
+  unsigned int pts = 0;
+
+  const float *depthRow = reinterpret_cast<const float *>(&depthMsg->data[0]);
   int rowStep = depthMsg->step / sizeof(float);
 
   // Parse entire depth image to find closest object's depth
-  for (int v = 0; v < (int) depthMsg->height; ++v, depthRow += rowStep) {
-    for (int u = 0; u < (int) depthMsg->width; ++u) {
+  for (int v = 0; v < (int)depthMsg->height; ++v, depthRow += rowStep) {
+    for (int u = 0; u < (int)depthMsg->width; ++u) {
       float depth = depth_image_proc::DepthTraits<float>::toMeters(depthRow[u]);
-      if (!depth_image_proc::DepthTraits<float>::valid(depth)) continue;
+      if (!depth_image_proc::DepthTraits<float>::valid(depth) || depth > TOO_FAR)
+        continue;
       float yVal = sinPixelY[v] * depth;
       float xVal = sinPixelX[u] * depth;
 
       // Store depth if obstacle is close enough and if it is the smallest one seen so far
-      if ( yVal > MIN_Y && yVal < MAX_Y &&
-      xVal > MIN_X && xVal < MAX_X) {
-        if (depth < currDepth) {
+      if (yVal > MIN_Y && yVal < MAX_Y &&
+          xVal > MIN_X && xVal < MAX_X) {
+        x += xVal;
+        y += yVal;
+        z = std::min(z, depth);
+        pts++;
+
+        if (depth < currDepth)
           currDepth = depth;
-          depthX = u;
-          depthY = v;
-        }
       }
     }
   }
-  //ROS_INFO_STREAM(currDepth);
-  
+
+  geometry_msgs::Twist T;
+  ROS_INFO_THROTTLE(1, "Centroid at %f %f %f with %d points", x, y, z, pts);
 
   // Actions change depending on current/past state of robot.
-  // Case 1: Robot is newly obstructed by a person in the way.
-  // Ask the person to start our survey.
-  geometry_msgs::Twist T;
-  if (currDepth <= NEAR_PERSON and !wait) {
-    wait = true;
-    T.linear.x = 0;
-    cmdpub.publish(T);
-    sc.say("Do you have time for a quick survey?");
-    sleepok(7, n);
-  }
+  // Make sure there are enough points to actually detect object.
+  if (pts > 2000) {
+    x /= pts;
+    y /= pts;
 
-  // Case 2: Robot is still near the person, and has already announced
-  // its presence. Hang out until the person's done with the study.
-  else if (currDepth <= NEAR_PERSON and wait) {
-    // do nothing
-  } 
-
-  // Case 3: Robot is not obstructed.
-  else {
-
-    // Case 3A: Robot was previously obstructed - thank the human!
-    if (wait) {
-      sc.say("Thank you for completing my survey!");
+    // Case 1: Robot is newly obstructed by a person in the way.
+    // Ask the person to start our survey.
+    if (currDepth <= NEAR_PERSON and !wait)
+    {
+      wait = true;
+      T.linear.x = 0;
+      cmdpub.publish(T);
+      ROS_INFO_STREAM("Do you have time for a quick survey?");
+      sc.say("Do you have time for a quick survey?");
+      sleepok(4, n);
     }
 
-    // Case 3B: just like hang out until someone shows up.
-    wait = false;
+    // Case 2: Robot is still near the person, and has already announced
+    // its presence. Hang out until the person's done with the study.
+    else if (currDepth <= NEAR_PERSON and wait)
+    {
+      ROS_INFO_STREAM("Hanging out :-)");
+    }
+
+    // Case 3: Robot is too far from anyone.
+    else if (currDepth > TOO_FAR) {
+      ROS_INFO_STREAM("Robot is too far from anything.");
+      T.linear.x = 0;
+      T.angular.z = 0.3;
+      cmdpub.publish(T);
+    }
+
+    // Case 4: Robot found a person to move towards.
+    else
+    {
+      ROS_INFO_STREAM("Re-orienting towards person.");
+      wait = false;
+      // T.linear.x = (currDepth - NEAR_PERSON) * Z_SCALE;
+      T.angular.z = -x * X_SCALE;
+      cmdpub.publish(T);
+    }
+  }
+
+  // Case 5: Not enough points, so just stop.
+  else {
+    // ROS_INFO_STREAM("not enough points, stopping");
     T.linear.x = 0;
-    T.angular.z = 0;
+    T.angular.z = 0.3;
     cmdpub.publish(T);
   }
 }
@@ -181,7 +212,7 @@ void depthCallback(const sensor_msgs::ImageConstPtr& depthMsg) {
  *
  * @return 0 (exit on success)
 ************************/
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   ros::init(argc, argv, "hello_ros");
   ros::NodeHandle n;
   ROS_INFO_STREAM("HELLO");
@@ -190,12 +221,12 @@ int main(int argc, char** argv) {
 
   depthSubscriber = n.subscribe<sensor_msgs::Image>("camera/depth/image_rect", 10, &depthCallback);
   cmdpub = n.advertise<geometry_msgs::Twist>("cmd_vel_mux/input/teleop", 1);
-  
+
   ros::Rate rate(5);
   while (ros::ok()) {
     ros::spinOnce();
     rate.sleep();
   }
-  
+
   return 0;
 }

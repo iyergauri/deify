@@ -27,10 +27,9 @@ include_directories(
 ###########
 ## Build ##
 ###########
-add_executable(deify src/deify.cpp)
-
+add_executable(orientAndSpeak src/orientAndSpeak)
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-target_link_libraries(deify ${catkin_LIBRARIES})
+target_link_libraries(orientAndSpeak ${catkin_LIBRARIES})
