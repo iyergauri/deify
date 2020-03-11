@@ -3,10 +3,9 @@
  * 
  * Students:
  * - Gauri Iyer
- * - Sam Scudder
- * - Shreeman Hariharan
+ * - Christopher D'Ambrosia
  * 
- * HW 11: Implementation and Robot-Focused Testing
+ * Final Project
  * 
  * Description: This file defines the behavior for the deify node in
  * the deify ROS package. This node navigates a Turtlebot that is 
@@ -16,12 +15,11 @@
  * 
  * Instructions:
  * (Don't forget to source devel/setup.bash in every terminal!)
- * In 5 terminals, run:
+ * In 4 terminals, run:
  *    1. roscore
  *    2. roslaunch turtlebot_bringup minimal.launch
  *    3. roslaunch astra_launch astra_pro.launch
  *    4. roslaunch sound_play soundplay_node.py
- *    5. roslaunch pocketsphinx turtlebot_voice_cmd.launch
  * In a 6th terminal, inside the workspace containining deify, run:
  *    - catkin_make
  *    - rosrun deify deify

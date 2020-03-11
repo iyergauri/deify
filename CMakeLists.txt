@@ -5,6 +5,7 @@ project(deify)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  sound_play
   geometry_msgs
   roscpp
   std_msgs
