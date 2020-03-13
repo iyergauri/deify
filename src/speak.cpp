@@ -156,8 +156,8 @@ void depthCallback(const sensor_msgs::ImageConstPtr &depthMsg) {
     if (currDepth <= NEAR_PERSON and !wait)
     {
       wait = true;
-      ROS_INFO_STREAM("Do you have time for a quick survey?");
-      sc.say("Do you have time for a quick survey?");
+      ROS_INFO_STREAM("Hi, come meet my friend!");
+      sc.say("Hi, come meet my friend!");
     }
 
     // Case 2: Robot is too far from anyone; reset participant.
