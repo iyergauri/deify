@@ -1,5 +1,5 @@
 /************************
- * Filename: orientAndSpeak.cpp
+ * Filename: speak.cpp
  * 
  * Students:
  * - Gauri Iyer
@@ -10,8 +10,7 @@
  * Description: This file defines the behavior for the deify node in
  * the deify ROS package. This node navigates a Turtlebot that is 
  * encouraging human engagement in DEI themes. When the Turtlebot 
- * locates a participant, it will both orient its "gaze" (the laptop
- * screen) and vocalize to invite participation. 
+ * locates a participant, it will vocalize to invite participation. 
  * 
  * Instructions:
  * (Don't forget to source devel/setup.bash in every terminal!)
@@ -24,7 +23,7 @@
  *       roslaunch sound_play soundplay_node.launch
  * In a 5th terminal, inside the workspace containining deify, run:
  *    - catkin_make
- *    - rosrun deify orientAndSpeak
+ *    - rosrun deify speak
  ************************/
 
 #include "ros/ros.h"
@@ -63,8 +62,7 @@ bool wait = false;
 /************************
  * void sleepok(int t, ros::NodeHandle &nh)
  * 
- * Purpose: sleep while the Turtlebot "says" things, so that it doesn't
- * accidentally interpret its' own speech as commands.
+ * Purpose: sleep while the Turtlebot "says" things
  * 
  * @param int t - number of seconds to sleep for
  * @param ros::NodeHandle &n - ensures the handle is still active
